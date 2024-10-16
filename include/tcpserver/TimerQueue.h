@@ -78,7 +78,7 @@ private:
     EventLoop *loop_;
     const int timerfd_;
     Channel timerfdChannel_;
-    TimerList timers_; //只会在loop_线程进行写操作，不要加锁
+    TimerList timers_; //Seules les opérations d'écriture seront effectuées dans le thread loop_, ne verrouillez pas
 };
 
 

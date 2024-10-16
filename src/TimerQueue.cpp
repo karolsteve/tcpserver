@@ -13,7 +13,7 @@ void TimerNode::restart(int64_t now) {
     if (repeat_) {
         expiration_ = TimeUtils::current_time_in_millis() + interval_; //Timestamp::addTime(now, interval_);
     } else {
-        expiration_ = -1; //Timestamp::invalid(); //一个空的Timestamp对象
+        expiration_ = -1;
     }
 }
 

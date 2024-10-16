@@ -137,17 +137,6 @@ void Acceptor::handleRead(int64_t)
         }
         else
         {
-            //snd and rcv buff is unnecessary. values are copied from server socket values (set plus haut)
-
-            {//just to check
-                int a;
-                socklen_t optlen = sizeof(a);
-                ::getsockopt(new_client_fd, SOL_SOCKET, SO_RCVBUF, &a, &optlen);
-                DEBUG_I("RCV started as          %d\n", a );
-                getsockopt(new_client_fd, SOL_SOCKET, SO_SNDBUF, &a, &optlen);
-                DEBUG_I("SD started as            %d\n", a );
-            }
-
             set_nonblocking(new_client_fd);
             int yes = 1;
             if (setsockopt(new_client_fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(int)))
