@@ -28,6 +28,8 @@ void Channel::on_events(int64_t receiveTime)
         if (m_close_cb) {
             m_close_cb();
         }
+    } else if (revents & EPOLLHUP) {
+        std::cerr << "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO BUG SOURCE\n";
     }
 
     if(revents & (EPOLLERR)){
