@@ -14,16 +14,6 @@
 
 #include <iostream>
 #include <cassert>
-#include <csignal>
-
-class IgnoreSigpipe
-{
-public:
-    IgnoreSigpipe(){
-        ::signal(SIGPIPE, SIG_IGN);
-    }
-
-};
 
 //Utilisez __thread pour vous assurer qu'un thread ne peut créer qu'une seule EventLoop
 // La variable __thread est une entité distincte pour chaque thread
@@ -31,10 +21,10 @@ public:
 __thread EventLoop *t_loopInThisThread = nullptr;
 
 EventLoop::EventLoop() : m_looping(false), m_thread_id(std::this_thread::get_id()),
-                         m_event_manager(new EventManager(this)), m_quit(false),
-                         m_calling_pending_queue(false), m_async_waker(new AsyncWaker(this)),
-                         m_timerqueue(new TimerQueue(this)){
-
+                         m_event_manager(std::make_unique<EventManager>(this)), m_quit(false),
+                         m_calling_pending_queue(false), m_async_waker(std::make_unique<AsyncWaker>(this)),
+                         m_timerqueue(std::make_unique<TimerQueue>(this))
+{
     DEBUG_D("EventLoop created");
 
     if (t_loopInThisThread) {
@@ -61,7 +51,7 @@ void EventLoop::loop() {
             // Ici epoll est en polling, il est bloqué, si vous souhaitez rappeler des événements actifs, vous devez trouver un moyen de le réveiller
             // on utilise ici une méthode très astucieuse, en particulier en utilisant un descripteur de fichier pour se réveiller
 
-            int64_t time = m_event_manager->epoll(call_events(TimeUtils::current_time_in_millis()), &channels);
+            const int64_t time = m_event_manager->epoll(call_events(TimeUtils::current_time_in_millis()), &channels);
 
             call_events(time);
 
@@ -101,7 +91,8 @@ void EventLoop::quit() {
     }
 }
 
-void EventLoop::abortNotInLoopThread() {
+void EventLoop::abortNotInLoopThread() const
+{
     std::cerr << "LOG_FATAL:   "
               << "EventLoop::abortNotInLoopThread - EventLoop " << this
               << " was created in threadId_ = " << m_thread_id
@@ -122,7 +113,7 @@ void EventLoop::run(std::function<void()> const &to_run) {
 // il peut aussi être appelé directement
 void EventLoop::queue(std::function<void()> const &to_run) {
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
         m_run_queue.push_back(to_run);
     }
 
@@ -136,11 +127,11 @@ void EventLoop::do_pending_queue() {
     m_calling_pending_queue = true;
 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
         functors.swap(m_run_queue);
     }
 
-    for (auto &functor: functors) {
+    for (auto const& functor: functors) {
         functor();
     }
 
@@ -149,7 +140,7 @@ void EventLoop::do_pending_queue() {
 
 ProtoBuffer *EventLoop::network_buffer() {
     if (m_network_buffer == nullptr) {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard lock(m_mutex);
         if (m_network_buffer == nullptr) {
             m_network_buffer = new ProtoBuffer((uint32_t) READ_BUFFER_SIZE);
         }
@@ -168,7 +159,7 @@ void EventLoop::schedule_event(EventObject *eventObject, uint32_t time) {
     m_events.insert(iter, eventObject);
 }
 
-void EventLoop::remove_event(EventObject *eventObject) {
+void EventLoop::remove_event(const EventObject *eventObject) {
     for (auto iter = m_events.begin(); iter != m_events.end(); iter++) {
         if (*iter == eventObject) {
             m_events.erase(iter);
@@ -185,7 +176,7 @@ int EventLoop::call_events(int64_t now) {
                 iter = m_events.erase(iter);
                 eventObject->on_event();
             } else {
-                int diff = (int) (eventObject->time() - now);
+                auto diff = (int) (eventObject->time() - now);
                 return diff > 1000 ? 1000 : diff;
             }
         }
@@ -194,18 +185,18 @@ int EventLoop::call_events(int64_t now) {
 }
 
 //new
-void EventLoop::runAt(const int64_t &time, std::function<void()> const &cb)
+void EventLoop::runAt(const int64_t &time, std::function<void()> const &cb) const
 {
     m_timerqueue->addTimer(cb, time, 0);
 }
 
-void EventLoop::runAfter(int64_t delay, const std::function<void()> &cb)
+void EventLoop::runAfter(int64_t delay, const std::function<void()> &cb) const
 {
     int64_t time(TimeUtils::current_time_in_millis() + delay);
     runAt(time, cb);
 }
 
-void EventLoop::runEvery(int64_t interval, std::function<void()> const &cb)
+void EventLoop::runEvery(int64_t interval, std::function<void()> const &cb) const
 {
     int64_t time(TimeUtils::current_time_in_millis() + interval);
     m_timerqueue->addTimer(cb, time, interval);
@@ -221,6 +212,7 @@ EventLoop::~EventLoop() {
     }
 }
 
-void EventLoop::wakeup() {
+void EventLoop::wakeup() const
+{
     m_async_waker->wakeup();
 }

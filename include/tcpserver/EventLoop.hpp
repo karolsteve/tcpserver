@@ -29,8 +29,6 @@ private:
     const std::thread::id m_thread_id;
     std::mutex m_mutex;
 
-    // Gère automatiquement les pointeurs vers les EventManagers avec unique_ptr
-    // Vous n'avez pas à vous soucier de la destruction de EventManager
     std::unique_ptr<EventManager> m_event_manager;
     bool m_quit;
     std::vector<std::function<void()>> m_run_queue;
@@ -43,7 +41,7 @@ private:
     ProtoBuffer *m_network_buffer{nullptr};
     std::list<EventObject *> m_events;
     int call_events(int64_t now);
-    void abortNotInLoopThread();
+    void abortNotInLoopThread() const;
 public:
     EventLoop();
 
@@ -53,7 +51,7 @@ public:
 
     void quit();
 
-    void wakeup();
+    void wakeup() const;
 
     // Si l'utilisateur appelle cette fonction sur le thread IO courant, le callback sera exécuté de manière synchrone ;
     //  Si l'utilisateur appelle runInLoop() sur un autre thread,
@@ -85,13 +83,13 @@ public:
 
     void schedule_event(EventObject *, uint32_t timeout);
 
-    void remove_event(EventObject *);
+    void remove_event(const EventObject *);
 
-    void runAt(const int64_t &time, std::function<void()> const &cb);
+    void runAt(const int64_t &time, std::function<void()> const &cb) const;
 
-    void runAfter(int64_t delay, std::function<void()> const &cb);
+    void runAfter(int64_t delay, std::function<void()> const &cb) const;
 
-    void runEvery(int64_t interval, std::function<void()> const &cb);
+    void runEvery(int64_t interval, std::function<void()> const &cb) const;
 };
 
 #endif // EVENT_LOOP

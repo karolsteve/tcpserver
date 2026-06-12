@@ -1,5 +1,5 @@
 /*
- * Created by Steve Tchatchouang
+* Created by Steve Tchatchouang
  *
  * Copyright (c) 2022 All rights reserved
  */
@@ -7,8 +7,7 @@
 #if !defined(TKS_ASYNC_WAKER)
 #define TKS_ASYNC_WAKER
 
-#include <iostream>
-#include <sys/eventfd.h>
+#include <memory>
 
 class EventLoop;
 class Channel;
@@ -19,8 +18,8 @@ private:
     /* data */
     int m_waker_fd;
     EventLoop *m_loop;
-    Channel *m_waker_channel;
-    void handleRead(int64_t);
+    std::unique_ptr<Channel> m_waker_channel;
+    void handleRead(int64_t) const;
 
 public:
     explicit AsyncWaker(EventLoop *loop);

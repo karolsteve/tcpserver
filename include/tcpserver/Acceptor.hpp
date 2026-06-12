@@ -1,5 +1,5 @@
 /*
- * Created by Steve Tchatchouang
+* Created by Steve Tchatchouang
  *
  * Copyright (c) 2022 All rights reserved
  */
@@ -8,6 +8,8 @@
 #define TKS_ACCEPTOR
 #include <string>
 #include <functional>
+
+#include "EventLoop.hpp"
 #include "fastlog/not_copyable.hpp"
 
 class EventLoop;
@@ -17,23 +19,19 @@ class Acceptor : notcopyable
 {
 private:
     EventLoop *m_loop;
-    bool m_listening;
     int m_listening_port;
-    int32_t m_keep_alive;
-    int32_t m_backlog;
-    bool m_with_linger;
+    std::unique_ptr<Channel> m_channel;
+    bool m_listening{false};
+    std::function<void(int sockfd, const std::string &, int16_t port, int family, EventLoop* evt_loop)> m_new_connection_callback;
 
-    Channel *m_channel;
-    std::function<void(int sockfd, const std::string &, int16_t port, int family)> m_new_connection_callback;
-
-    void handleRead(int64_t);
+    void handleRead(int64_t) const;
 
 public:
-    Acceptor(EventLoop *loop, int listen_port, int32_t snd_buff, int32_t rcv_buff, int32_t keep_alive, int32_t backlog,
-             bool with_linger);
+    Acceptor(EventLoop *loop, int listen_port, int32_t snd_buff, int32_t rcv_buff);
+
     ~Acceptor();
 
-    void set_new_conn_callback(std::function<void(int sockfd, const std::string &, int16_t port, int family)> const &cb) { m_new_connection_callback = cb; }
+    void set_new_conn_callback(std::function<void(int sockfd, const std::string &, int16_t port, int family, EventLoop* evt_loop)> const &cb) { m_new_connection_callback = cb; }
 
     void listen();
     [[nodiscard]] bool listening() const { return m_listening; }

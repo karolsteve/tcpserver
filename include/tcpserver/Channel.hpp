@@ -34,7 +34,7 @@ public:
 
     [[nodiscard]] uint32_t events() const { return m_events_flag; }
 
-    //Enregistrez-vous pour les événements . Notez la fonction update()
+    //Enregistrez-vous pour les événements. Notez la fonction update()
     void enable_reading(){
         m_events_flag |= kReadEvent;
         update();
@@ -67,17 +67,17 @@ public:
     [[nodiscard]] bool supports_pn() const { return m_with_pn; }
 
     // for poller
-    void mark(ChannelMark mark) { m_mark = mark; }
+    void mark(const ChannelMark mark) { m_mark = mark; }
 
-    ChannelMark mark() { return m_mark; }
+    [[nodiscard]] ChannelMark mark() const { return m_mark; }
 
     // on_events est le noyau de Channel, il est appelé par EventLoop::loop()
     // Sa fonction est d'appeler différents callbacks utilisateur selon la valeur de events
-    void on_events(int64_t receiveTime);
+    void on_events(int64_t receiveTime) const;
 
-    void on_periodic_notification(int64_t now);
+    void on_periodic_notification(int64_t now) const;
 
-    EventLoop *owner_loop() { return m_loop; }
+    [[nodiscard]] EventLoop *owner_loop() const { return m_loop; }
 
     void set_read_cb(std::function<void(int64_t)> const &cb) { m_read_cb = cb; }
 

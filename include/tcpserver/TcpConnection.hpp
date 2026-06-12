@@ -10,7 +10,7 @@
 #include <memory>
 #include <string>
 #include <functional>
-#include <any>
+#include "EventLoop.hpp"
 
 class ProtoBuffer;
 
@@ -35,15 +35,17 @@ private:
     int16_t m_port;
     int m_family;
     long m_conn_id;
-    StateE m_state;
 
     std::unique_ptr<Channel> m_channel;
 
-    ByteStream *m_outgoing_byte_stream;
+    std::unique_ptr<ByteStream> m_outgoing_byte_stream;
+    StateE m_state{kConnecting};
 
     // in sec
     time_t m_timeout{15};
     int64_t m_last_event_time{0};
+    int64_t m_shutdown_time{0};
+    bool m_shutdown_started{false};
 
     std::unique_ptr<TcpConnContext> m_context{nullptr};
 
@@ -55,35 +57,38 @@ private:
 
     void handle_error(bool check_sock_err = true);
 
-    void shutdown_internal();
+
+    void graceful_shutdown_internal() const;
 
     void on_periodic_notification(int64_t now);
 
+    void write_buffer_internal(ProtoBuffer *buffer) const;
 
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_connection_state_change_cb;
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_completed_cb; // unused
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_connection_close_cb;
     std::function<void(std::shared_ptr<TcpConnection> const &, ProtoBuffer *buf, int64_t time)> m_data_received_cb;
-public:
 
-    std::string state_str(){
+public:
+    std::string state_str() const
+    {
         return m_state == kConnecting ? "Connecting" : m_state == kConnected ? "Cted" : m_state == kDisconnecting ? "Dicting" : m_state == kDisconnected ? "DCT" : "UNK";
     }
+
+
     TcpConnection(EventLoop *loop, int sock_fd, std::string ip, int16_t port, int family, long conn_id);
 
     ~TcpConnection();
 
     void write_buffer(ProtoBuffer *buffer);
 
-    void write_buffer_internal(ProtoBuffer *buffer);
-
     void connection_established();
 
     void connection_destroyed();
 
-    void shutdown();
+    void graceful_shutdown();
 
-    void brute_close();
+    void brute_close() { m_loop-> run([this]{handle_close(-1);});}
 
     inline long conn_id() const { return m_conn_id; }
 

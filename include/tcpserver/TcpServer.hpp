@@ -11,6 +11,7 @@
 #include <memory>
 #include <map>
 #include <functional>
+#include <thread>
 
 class Acceptor;
 class EventLoop;
@@ -24,15 +25,18 @@ class TcpServer : notcopyable
 {
 private:
     // Le gestionnaire de connexion du serveur pour les nouvelles connexions
-    void on_new_connection(int sock_fd, const std::string &ip, int16_t port, int family);
+    void on_new_connection(int sock_fd, const std::string &ip, int16_t port, int family, EventLoop *event_loop);
 
     EventLoop *m_loop; // Objet de boucle de thread principal, utilisé pour gérer accept
-    std::unique_ptr<Acceptor> m_acceptor;
+    uint16_t m_listen_port;
     bool m_started;
     long m_next_conn_id;
     std::unique_ptr<EventLoopThreadPool> m_thread_pool;
     std::string m_name;
     int32_t m_server_id;
+    int32_t m_snd_buff;
+    int32_t m_rcv_buff;
+    std::vector<std::unique_ptr<Acceptor>> m_acceptors;
 
     // cb
     std::function<void(const std::shared_ptr<TcpConnection> &)> m_connection_state_change_cb;
@@ -47,16 +51,13 @@ private:
     void remove_connection_internal(std::shared_ptr<TcpConnection> const &conn);
 
 public:
-    TcpServer(EventLoop *loop, uint16_t listen_port, std::string name, int server_id,
-              int32_t snd_buff, int32_t rcv_buff, int32_t keep_alive, int32_t backlog, int32_t linger_enabled);
+    TcpServer(EventLoop *loop, uint16_t listen_port, std::string name, int server_id, int32_t snd_buff, int32_t rcv_buff, uint32_t num_threads);
     ~TcpServer();
 
     // démarrer le serveur
     void start();
 
-    void set_pool_size(uint32_t num_threads);
-
-    int listen_port();
+    int listen_port() const;
 
     [[nodiscard]] uint32_t pool_size() const;
 
@@ -73,8 +74,6 @@ public:
     }
 
     [[nodiscard]] int32_t server_id() const;
-
-    std::shared_ptr<TcpConnection> conn(long id);
 };
 
 #endif // TCP_SERVER

@@ -1,5 +1,5 @@
 /*
- * Created by Steve Tchatchouang
+* Created by Steve Tchatchouang
  *
  * Copyright (c) 2022 All rights reserved
  */
@@ -10,10 +10,11 @@
 #include "fastlog/FastLog.h"
 
 #include <unistd.h>
+#include <sys/eventfd.h>
 
 AsyncWaker::AsyncWaker(EventLoop *loop)
         : m_waker_fd(::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)), m_loop(loop),
-          m_waker_channel(new Channel(loop, m_waker_fd)) {
+          m_waker_channel(std::make_unique<Channel>(loop, m_waker_fd)) {
     if (m_waker_fd < 0) {
         perror("Async wake Failed in event_fd");
         abort();
@@ -27,27 +28,21 @@ AsyncWaker::AsyncWaker(EventLoop *loop)
 
 AsyncWaker::~AsyncWaker() {
     ::close(m_waker_fd);
-    if(m_waker_channel != nullptr){
-        delete m_waker_channel;
-        m_waker_channel = nullptr;
-    }
-
 }
 
-void AsyncWaker::handleRead(int64_t) {
+void AsyncWaker::handleRead(int64_t) const
+{
     m_loop->assertInLoopThread();
     uint64_t one = 1;
-    ssize_t n = ::read(m_waker_fd, &one, sizeof one);
-    if (n != sizeof one) {
+    if (const ssize_t n = ::read(m_waker_fd, &one, sizeof one); n != sizeof one) {
         DEBUG_F("AsyncWake::handleRead() reads %lu bytes instead of 8", n);
     }
 }
 
 void AsyncWaker::wakeup() const {
     DEBUG_D("WakeUp from async wake");
-    uint64_t one = 1;
-    ssize_t n = ::write(m_waker_fd, &one, sizeof one);
-    if (n != sizeof one) {
+    constexpr uint64_t one = 1;
+    if (const ssize_t n = ::write(m_waker_fd, &one, sizeof one); n != sizeof one) {
         DEBUG_F("AsyncWaker::wakeup() writes %ld bytes instead of 8", n);
     }
 }
