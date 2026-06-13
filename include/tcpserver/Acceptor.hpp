@@ -14,6 +14,7 @@
 
 class EventLoop;
 class Channel;
+class TcpConnection;
 
 class Acceptor : notcopyable
 {
@@ -22,18 +23,30 @@ private:
     int m_listening_port;
     std::unique_ptr<Channel> m_channel;
     bool m_listening{false};
-    std::function<void(int sockfd, const std::string &, uint16_t port, int family, EventLoop* evt_loop)> m_new_connection_callback;
+    std::unordered_map<long, std::shared_ptr<TcpConnection>> m_connections;
+    std::function<void(const std::shared_ptr<TcpConnection> &, ProtoBuffer *buf, int64_t time)> m_data_received_cb;
+    std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_complete_cb;
+    std::function<void(const std::shared_ptr<TcpConnection> &)> m_connection_state_change_cb;
 
-    void handleRead(int64_t) const;
+    void handleRead(int64_t);
+
+    void on_new_connection(int sock_fd, const std::string &ip, uint16_t port, int family);
+
+    void remove_connection_internal(std::shared_ptr<TcpConnection> const &conn);
 
 public:
     Acceptor(EventLoop *loop, int listen_port, int32_t snd_buff, int32_t rcv_buff);
 
     ~Acceptor();
 
-    void set_new_conn_callback(std::function<void(int sockfd, const std::string &, uint16_t port, int family, EventLoop* evt_loop)> const &cb) { m_new_connection_callback = cb; }
+    void set_on_data_received(std::function<void(const std::shared_ptr<TcpConnection> &, ProtoBuffer *buf, int64_t time)> const &cb) { m_data_received_cb = cb; }
+
+    void set_on_write_complete(std::function<void(std::shared_ptr<TcpConnection> const &)> const &cb) { m_write_complete_cb = cb; }
+
+    void set_on_connection_state_change(std::function<void(std::shared_ptr<TcpConnection> const &)> const &cb) { m_connection_state_change_cb = cb; }
 
     void listen();
+
     [[nodiscard]] bool listening() const { return m_listening; }
 
     [[nodiscard]] int listen_port() const { return m_listening_port; }

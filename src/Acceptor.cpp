@@ -6,6 +6,7 @@
 #include "Acceptor.hpp"
 #include "EventLoop.hpp"
 #include "Channel.hpp"
+#include "TcpConnection.hpp"
 #include <fastlog/FastLog.h>
 
 #include <sys/socket.h>
@@ -13,6 +14,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include <atomic>
+#include <cassert>
+
+static std::atomic_long next_conn_id;
 
 Acceptor::Acceptor(EventLoop* loop, int listen_port, int32_t snd_buff, int32_t rcv_buff) : m_loop(loop), m_listening_port(listen_port)
 {
@@ -85,7 +90,7 @@ void Acceptor::listen()
     }
 }
 
-void Acceptor::handleRead(int64_t) const
+void Acceptor::handleRead(int64_t)
 {
     m_loop->assertInLoopThread();
 
@@ -113,8 +118,38 @@ void Acceptor::handleRead(int64_t) const
         char c_addr[INET6_ADDRSTRLEN];
         inet_ntop(in_addr.sin_family, (void*)&(in_addr.sin_addr), c_addr, INET6_ADDRSTRLEN);
 
-        m_new_connection_callback(new_client_fd, c_addr, ntohs(in_addr.sin_port), in_addr.sin_family, m_loop);
+        on_new_connection(new_client_fd, c_addr, ntohs(in_addr.sin_port), in_addr.sin_family);
     }
+}
+
+void Acceptor::on_new_connection(int sock_fd, const std::string& ip, uint16_t port, int family)
+{
+    m_loop->assertInLoopThread();
+    // Lorsqu'une nouvelle connexion arrive, enregistrez d'abord un objet TcpConnection, puis gérez-le avec le event_loop_thread
+
+    auto conn = std::make_shared<TcpConnection>(m_loop, sock_fd, ip, port, family, ++next_conn_id);
+    m_connections[conn->conn_id()] = conn;
+    DEBUG_D("New connection %s:%d sock_fd : %d family %d id %ld", ip.c_str(), port, sock_fd, family, conn->conn_id());
+
+    conn->set_on_connection_state_change(m_connection_state_change_cb);
+    conn->set_on_data_received(m_data_received_cb);
+    conn->set_on_write_complete(m_write_complete_cb);
+    conn->set_on_connection_closed([this](const auto& _arg) { remove_connection_internal(_arg); });
+    conn->connection_established();
+}
+
+void Acceptor::remove_connection_internal(std::shared_ptr<TcpConnection> const &conn) {
+    m_loop->assertInLoopThread();
+    DEBUG_D("TcpServer::removeConnection - connection %ld [%s]", conn->conn_id(), conn->ip_addr().c_str());
+    // À ce stade, l'objet conn est détenu par lui-même et l'objet m_connections,
+    // Le nombre de références tombe à 1 lorsque conn est supprimé de m_connections,
+    // S'il n'est pas traité, il sera détruit après avoir quitté le champ d'application
+    // Enfin utilisé std::bind pour prolonger la durée de vie de TcpConnection à connectDestroyed
+    // lorsque l'appel se termine
+    const size_t n = m_connections.erase(conn->conn_id());
+    assert(n == 1);
+    (void) n;
+    m_loop->queue([conn] { conn->connection_destroyed(); });
 }
 
 Acceptor::~Acceptor()

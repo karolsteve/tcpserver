@@ -12,7 +12,6 @@
 #include <list>
 
 #include "fastlog/not_copyable.hpp"
-#include "TimerQueue.h"
 
 #define READ_BUFFER_SIZE (2 * 1024 * 1024)
 
@@ -37,7 +36,6 @@ private:
     void do_pending_queue();
     std::atomic<bool> m_calling_pending_queue{false};
     std::unique_ptr<AsyncWaker> m_async_waker;
-    std::unique_ptr<TimerQueue> m_timerqueue;
 
     ProtoBuffer *m_network_buffer{nullptr};
     std::list<EventObject *> m_events;
@@ -85,12 +83,6 @@ public:
     void schedule_event(EventObject *, uint32_t timeout);
 
     void remove_event(const EventObject *);
-
-    void runAt(const int64_t &time, std::function<void()> const &cb) const;
-
-    void runAfter(int64_t delay, std::function<void()> const &cb) const;
-
-    void runEvery(int64_t interval, std::function<void()> const &cb) const;
 };
 
 #endif // EVENT_LOOP

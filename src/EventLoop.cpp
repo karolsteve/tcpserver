@@ -22,8 +22,7 @@ __thread EventLoop *t_loopInThisThread = nullptr;
 
 EventLoop::EventLoop() : m_looping(false), m_thread_id(std::this_thread::get_id()),
                          m_event_manager(std::make_unique<EventManager>(this)), m_quit(false),
-                         m_calling_pending_queue(false), m_async_waker(std::make_unique<AsyncWaker>(this)),
-                         m_timerqueue(std::make_unique<TimerQueue>(this))
+                         m_calling_pending_queue(false), m_async_waker(std::make_unique<AsyncWaker>(this))
 {
     DEBUG_D("EventLoop created");
 
@@ -179,25 +178,6 @@ int EventLoop::call_events(int64_t now) {
     }
     return 1000;
 }
-
-//new
-void EventLoop::runAt(const int64_t &time, std::function<void()> const &cb) const
-{
-    m_timerqueue->addTimer(cb, time, 0);
-}
-
-void EventLoop::runAfter(int64_t delay, const std::function<void()> &cb) const
-{
-    int64_t time(TimeUtils::current_time_in_millis() + delay);
-    runAt(time, cb);
-}
-
-void EventLoop::runEvery(int64_t interval, std::function<void()> const &cb) const
-{
-    int64_t time(TimeUtils::current_time_in_millis() + interval);
-    m_timerqueue->addTimer(cb, time, interval);
-}
-
 
 EventLoop::~EventLoop() {
     assert(!m_looping);

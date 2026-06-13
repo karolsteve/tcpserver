@@ -9,7 +9,6 @@
 
 #include <string>
 #include <memory>
-#include <map>
 #include <functional>
 #include <thread>
 
@@ -24,13 +23,10 @@ class ProtoBuffer;
 class TcpServer : notcopyable
 {
 private:
-    // Le gestionnaire de connexion du serveur pour les nouvelles connexions
-    void on_new_connection(int sock_fd, const std::string &ip, uint16_t port, int family, EventLoop *event_loop);
 
     EventLoop *m_loop; // Objet de boucle de thread principal, utilisé pour gérer accept
     uint16_t m_listen_port;
     bool m_started;
-    long m_next_conn_id;
     std::unique_ptr<EventLoopThreadPool> m_thread_pool;
     std::string m_name;
     int32_t m_server_id;
@@ -43,13 +39,6 @@ private:
     std::function<void(const std::shared_ptr<TcpConnection> &, ProtoBuffer *buf, int64_t time)> m_data_received_cb;
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_complete_cb;
 
-    // dictionnaire de connexion tcp
-    std::unordered_map<long, std::shared_ptr<TcpConnection>> m_connections;
-
-    // supprimer la fonction de connexion tcp
-    void remove_connection(std::shared_ptr<TcpConnection> const &conn);
-    void remove_connection_internal(std::shared_ptr<TcpConnection> const &conn);
-
 public:
     TcpServer(EventLoop *loop, uint16_t listen_port, std::string name, int server_id, int32_t snd_buff, int32_t rcv_buff, uint32_t num_threads);
     ~TcpServer();
@@ -57,7 +46,7 @@ public:
     // démarrer le serveur
     void start();
 
-    int listen_port() const;
+    [[nodiscard]] int listen_port() const;
 
     [[nodiscard]] uint32_t pool_size() const;
 
