@@ -40,11 +40,10 @@ void EventLoop::loop() {
     assertInLoopThread();
 
     m_looping = true;
-    m_quit = false;
 
     std::vector<Channel *> channels{};
 
-    while (!m_quit) {
+    while (!m_quit.load()) {
         try {
             channels.clear();
 
@@ -85,7 +84,7 @@ void EventLoop::remove_channel(Channel *channel) {
 }
 
 void EventLoop::quit() {
-    m_quit = true;
+    m_quit.store(true);
     if (!isInLoopThread()) {
         m_async_waker->wakeup();
     }
@@ -117,14 +116,14 @@ void EventLoop::queue(std::function<void()> const &to_run) {
         m_run_queue.push_back(to_run);
     }
 
-    if (!isInLoopThread() || m_calling_pending_queue) {
+    if (!isInLoopThread() || m_calling_pending_queue.load()) {
         m_async_waker->wakeup();
     }
 }
 
 void EventLoop::do_pending_queue() {
     std::vector<std::function<void()>> functors;
-    m_calling_pending_queue = true;
+    m_calling_pending_queue.store(true);
 
     {
         std::lock_guard lock(m_mutex);
@@ -135,7 +134,7 @@ void EventLoop::do_pending_queue() {
         functor();
     }
 
-    m_calling_pending_queue = false;
+    m_calling_pending_queue.store(false);
 }
 
 ProtoBuffer *EventLoop::network_buffer() {

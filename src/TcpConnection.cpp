@@ -86,6 +86,7 @@ void TcpConnection::handle_read(const int64_t receiveTime) {
         buffer->limit((uint32_t) readCount);
         m_last_event_time = TimeUtils::current_time_in_millis();
         m_data_received_cb(shared_from_this(), buffer, receiveTime);
+        if (m_state != kConnected) return;
     }
 }
 
@@ -109,20 +110,20 @@ void TcpConnection::handle_write() {
         while (true) {
             ssize_t sent_length = ::send(m_channel->fd(), buffer->bytes() + total_sent, remaining, MSG_NOSIGNAL | MSG_DONTWAIT);
             if (sent_length < 0) {
-                if (errno != EWOULDBLOCK && errno != EAGAIN)
-                {
-                    DEBUG_W("Error when writing on socket %d", errno);
-                    handle_error(false);
-                    return;
+                if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                    DEBUG_W("Got would block on tks send");
+                    break;
                 }
-                DEBUG_W("Got would block or eagain on tks send... updating sent_length to 0");
-                sent_length = 0;
+                DEBUG_W("Error when writing on socket %d", errno);
+                handle_error(false);
+                return;
             }
 
             m_outgoing_byte_stream->discard(sent_length);
             if (!m_outgoing_byte_stream->has_data()) {
                 m_channel->disable_write();
-                m_loop->queue([this] { m_write_completed_cb(this->shared_from_this()); });
+                auto self = shared_from_this();
+                m_loop->queue([self] { self->m_write_completed_cb(self->shared_from_this()); });
                 if (m_state == kDisconnecting) {
                     graceful_shutdown_internal();
                 }
@@ -154,9 +155,12 @@ void TcpConnection::handle_close(const int reason) {
     m_loop->assertInLoopThread();
     DEBUG_W("Close called with reason %d. state is %s", reason, state_str().c_str());
 
-    m_last_event_time = TimeUtils::current_time_in_millis();
-
+    if (m_state == kDisconnected) return;
     assert(m_state == kConnected || m_state == kDisconnecting);
+
+    m_state = kDisconnected;
+
+    m_last_event_time = TimeUtils::current_time_in_millis();
 
     m_channel->disable_all();
     m_connection_close_cb(shared_from_this());
@@ -165,26 +169,24 @@ void TcpConnection::handle_close(const int reason) {
 void TcpConnection::connection_destroyed()
 {
     m_loop->assertInLoopThread();
-    assert(m_state == kConnected || m_state == kDisconnecting);
-    m_state = kDisconnected;
+    assert(m_state == kDisconnected);
     m_loop->remove_channel(m_channel.get());
-    DEBUG_D("GORO %s", ip_addr().c_str());
     m_connection_state_change_cb(shared_from_this());
-    DEBUG_D("FINISHED 1");
 }
 
 void TcpConnection::graceful_shutdown() {
-    m_loop->run([this]
+    auto self = shared_from_this();
+    m_loop->run([self]
     {
-        DEBUG_D("Graceful Shutdown called on conn %ld. state is %s", conn_id(), state_str().c_str());
-        if (m_state != kConnected && m_state != kConnecting)
+        DEBUG_D("Graceful Shutdown called on conn %ld. state is %s", self->conn_id(), self->state_str().c_str());
+        if (self->m_state != kConnected && self->m_state != kConnecting)
         {
             return;
         }
-        m_state = kDisconnecting;
-        m_shutdown_started = true;
-        m_shutdown_time = TimeUtils::current_time_in_millis();
-        graceful_shutdown_internal();
+        self->m_state = kDisconnecting;
+        self->m_shutdown_started = true;
+        self->m_shutdown_time = TimeUtils::current_time_in_millis();
+        self->graceful_shutdown_internal();
     });
 }
 
@@ -198,11 +200,16 @@ void TcpConnection::graceful_shutdown_internal() const {
 }
 
 void TcpConnection::write_buffer(ProtoBuffer *buffer) {
-    if (m_state == kConnected) {
-        m_loop->run([this, buffer] { write_buffer_internal(buffer); });
-    } else {
-        DEBUG_E("WRITE BUFF CALLED WHEN not connected. state is %s", state_str().c_str());
-    }
+    auto self = shared_from_this();
+    m_loop->run([self, buffer]
+    {
+        if (self->is_connected()) {
+            self->write_buffer_internal(buffer);
+        } else {
+            DEBUG_E("WRITE BUFF CALLED WHEN not connected. state is %s", self->state_str().c_str());
+        }
+    });
+
 }
 
 void TcpConnection::write_buffer_internal(ProtoBuffer *buffer) const

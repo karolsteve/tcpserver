@@ -6,6 +6,7 @@
 #define EVENT_LOOP
 
 #include <functional>
+#include <atomic>
 #include <thread>
 #include <mutex>
 #include <list>
@@ -30,11 +31,11 @@ private:
     std::mutex m_mutex;
 
     std::unique_ptr<EventManager> m_event_manager;
-    bool m_quit;
+    std::atomic<bool> m_quit{false};
     std::vector<std::function<void()>> m_run_queue;
 
     void do_pending_queue();
-    bool m_calling_pending_queue;
+    std::atomic<bool> m_calling_pending_queue{false};
     std::unique_ptr<AsyncWaker> m_async_waker;
     std::unique_ptr<TimerQueue> m_timerqueue;
 

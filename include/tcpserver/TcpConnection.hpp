@@ -88,7 +88,11 @@ public:
 
     void graceful_shutdown();
 
-    void brute_close() { m_loop-> run([this]{handle_close(-1);});}
+    void brute_close()
+    {
+        auto self = shared_from_this();
+        m_loop-> run([self]{self->handle_close(-1);});
+    }
 
     inline long conn_id() const { return m_conn_id; }
 

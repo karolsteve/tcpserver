@@ -26,18 +26,24 @@ void Channel::on_events(const int64_t receiveTime) const
 {
     const uint32_t r_events = m_revents;
     if (r_events & (EPOLLRDHUP | EPOLLHUP)) {
-        m_close_cb();
+        if (m_close_cb) m_close_cb();
         return;
     }
 
     if(r_events & EPOLLERR){
         std::cerr << "ERROR FROM events \n";
-        m_error_cb();
+        if (m_error_cb) m_error_cb();
         return;
     }
 
-    if(r_events & (EPOLLIN | EPOLLPRI)) m_read_cb(receiveTime);
-    if(r_events & EPOLLOUT) m_write_cb();
+    if(r_events & (EPOLLIN | EPOLLPRI))
+    {
+        if (m_read_cb) m_read_cb(receiveTime);
+    }
+    if(r_events & EPOLLOUT)
+    {
+        if (m_write_cb) m_write_cb();
+    }
 }
 
 void Channel::on_periodic_notification(const int64_t now) const
