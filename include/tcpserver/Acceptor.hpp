@@ -7,6 +7,7 @@
 #if !defined(TKS_ACCEPTOR)
 #define TKS_ACCEPTOR
 #include <string>
+#include <memory>
 #include <functional>
 
 #include "EventLoop.hpp"
