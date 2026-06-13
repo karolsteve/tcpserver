@@ -32,7 +32,7 @@ private:
     EventLoop *m_loop;
     int m_fd;
     std::string m_ip;
-    int16_t m_port;
+    uint16_t m_port;
     int m_family;
     long m_conn_id;
 
@@ -65,7 +65,7 @@ private:
     void write_buffer_internal(ProtoBuffer *buffer) const;
 
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_connection_state_change_cb;
-    std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_completed_cb; // unused
+    std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_completed_cb;
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_connection_close_cb;
     std::function<void(std::shared_ptr<TcpConnection> const &, ProtoBuffer *buf, int64_t time)> m_data_received_cb;
 
@@ -76,7 +76,7 @@ public:
     }
 
 
-    TcpConnection(EventLoop *loop, int sock_fd, std::string ip, int16_t port, int family, long conn_id);
+    TcpConnection(EventLoop *loop, int sock_fd, std::string ip, uint16_t port, int family, long conn_id);
 
     ~TcpConnection();
 
@@ -100,7 +100,7 @@ public:
 
     inline std::string ip_addr() const { return m_ip; }
 
-    inline int16_t port() const{ return m_port;}
+    inline uint16_t port() const{ return m_port;}
 
     void set_timeout(time_t timeout); // in sec
     bool is_connected() const;

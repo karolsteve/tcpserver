@@ -18,7 +18,7 @@
 #include "buffer/ProtoBuffer.h"
 #include "timeutils/TimeUtils.hpp"
 
-TcpConnection::TcpConnection(EventLoop *loop, int sock_fd, std::string ip, const int16_t port, const int family, const long conn_id)
+TcpConnection::TcpConnection(EventLoop *loop, int sock_fd, std::string ip, const uint16_t port, const int family, const long conn_id)
         : m_loop(loop), m_fd(sock_fd), m_ip(std::move(ip)), m_port(port), m_family(family), m_conn_id(conn_id),
           m_channel(std::make_unique<Channel>(loop, sock_fd, true)), m_outgoing_byte_stream(std::make_unique<ByteStream>()) {
     assert(loop);
@@ -96,7 +96,7 @@ void TcpConnection::handle_write() {
     DEBUG_D("Handle write. state is %s", state_str().c_str());
 
     if (!m_channel->has_write_op()) {
-        DEBUG_F("HANDLE WRITE CALLED... but NOT WRITE OPS. %ld [%s] state is %s", conn_id(), ip_addr().c_str(),state_str().c_str());
+        DEBUG_W("HANDLE WRITE CALLED... but NOT WRITE OPS. %ld [%s] state is %s", conn_id(), ip_addr().c_str(),state_str().c_str());
         return;
     }
 

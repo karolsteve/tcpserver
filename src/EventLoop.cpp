@@ -139,10 +139,7 @@ void EventLoop::do_pending_queue() {
 
 ProtoBuffer *EventLoop::network_buffer() {
     if (m_network_buffer == nullptr) {
-        std::lock_guard lock(m_mutex);
-        if (m_network_buffer == nullptr) {
-            m_network_buffer = new ProtoBuffer((uint32_t) READ_BUFFER_SIZE);
-        }
+        m_network_buffer = new ProtoBuffer((uint32_t) READ_BUFFER_SIZE);
     }
     return m_network_buffer;
 }

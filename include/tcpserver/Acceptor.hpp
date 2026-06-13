@@ -22,7 +22,7 @@ private:
     int m_listening_port;
     std::unique_ptr<Channel> m_channel;
     bool m_listening{false};
-    std::function<void(int sockfd, const std::string &, int16_t port, int family, EventLoop* evt_loop)> m_new_connection_callback;
+    std::function<void(int sockfd, const std::string &, uint16_t port, int family, EventLoop* evt_loop)> m_new_connection_callback;
 
     void handleRead(int64_t) const;
 
@@ -31,7 +31,7 @@ public:
 
     ~Acceptor();
 
-    void set_new_conn_callback(std::function<void(int sockfd, const std::string &, int16_t port, int family, EventLoop* evt_loop)> const &cb) { m_new_connection_callback = cb; }
+    void set_new_conn_callback(std::function<void(int sockfd, const std::string &, uint16_t port, int family, EventLoop* evt_loop)> const &cb) { m_new_connection_callback = cb; }
 
     void listen();
     [[nodiscard]] bool listening() const { return m_listening; }

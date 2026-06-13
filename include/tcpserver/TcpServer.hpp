@@ -25,7 +25,7 @@ class TcpServer : notcopyable
 {
 private:
     // Le gestionnaire de connexion du serveur pour les nouvelles connexions
-    void on_new_connection(int sock_fd, const std::string &ip, int16_t port, int family, EventLoop *event_loop);
+    void on_new_connection(int sock_fd, const std::string &ip, uint16_t port, int family, EventLoop *event_loop);
 
     EventLoop *m_loop; // Objet de boucle de thread principal, utilisé pour gérer accept
     uint16_t m_listen_port;
@@ -44,7 +44,7 @@ private:
     std::function<void(std::shared_ptr<TcpConnection> const &)> m_write_complete_cb;
 
     // dictionnaire de connexion tcp
-    std::map<long, std::shared_ptr<TcpConnection>> m_connections;
+    std::unordered_map<long, std::shared_ptr<TcpConnection>> m_connections;
 
     // supprimer la fonction de connexion tcp
     void remove_connection(std::shared_ptr<TcpConnection> const &conn);

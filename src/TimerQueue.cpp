@@ -63,8 +63,8 @@ void TimerQueue::startTimer(TimerNode &timernode) const {
     struct itimerspec newValue{};
     bzero(&newValue, sizeof(newValue));
     int64_t millis = timernode.expiration() - TimeUtils::current_time_in_millis();
-    if (millis < 1000) {
-        millis = 1000;
+    if (millis < 1) {
+        millis = 1;
     }
     newValue.it_value.tv_sec = millis / 1000;
     newValue.it_value.tv_nsec = (millis % 1000) * 1000 * 1000;

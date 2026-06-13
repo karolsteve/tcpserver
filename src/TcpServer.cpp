@@ -37,11 +37,13 @@ void TcpServer::start() {
         m_thread_pool->start();
     }
 
+    assert(pool_size() > 0);
+
     for (int i = 0; i < m_thread_pool->pool_size(); ++i)
     {
         EventLoop *event_loop = m_thread_pool->get_next_loop();
         auto acceptor = std::make_unique<Acceptor>(event_loop, m_listen_port, m_snd_buff, m_rcv_buff);
-        acceptor->set_new_conn_callback([this](int sock_fd, const std::string &ip, int16_t port, int family, EventLoop *loop) {
+        acceptor->set_new_conn_callback([this](int sock_fd, const std::string &ip, uint16_t port, int family, EventLoop *loop) {
             m_loop->run([this, sock_fd, ip, port, family, loop]{on_new_connection(sock_fd, ip, port, family, loop);});
         });
         auto * a = acceptor.get();
@@ -51,7 +53,7 @@ void TcpServer::start() {
     }
 }
 
-void TcpServer::on_new_connection(int sock_fd, const std::string &ip, int16_t port, int family, EventLoop *event_loop) {
+void TcpServer::on_new_connection(int sock_fd, const std::string &ip, uint16_t port, int family, EventLoop *event_loop) {
     m_loop->assertInLoopThread();
     DEBUG_D("New connection %s:%d sock_fd : %d family %d", ip.c_str(), port, sock_fd, family);
     // Lorsqu'une nouvelle connexion arrive, enregistrez d'abord un objet TcpConnection, puis gérez-le avec le event_loop_thread

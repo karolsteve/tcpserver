@@ -5,7 +5,7 @@
 #if !defined(TKS_EVENT_MANAGER)
 #define TKS_EVENT_MANAGER
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <cstdint>
 
@@ -18,8 +18,8 @@ private:
     EventLoop *m_owner_loop;
     int m_epoll_fd;
     std::vector<struct epoll_event> m_event_list;
-    std::map<int, Channel *> m_channels;
-    std::map<int, Channel *> m_periodic_notification_observers;
+    std::unordered_map<int, Channel *> m_channels;
+    std::unordered_map<int, Channel *> m_periodic_notification_observers;
 
 public:
     explicit EventManager(EventLoop *loop);

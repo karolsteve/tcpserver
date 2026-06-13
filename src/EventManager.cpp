@@ -36,7 +36,12 @@ int64_t EventManager::epoll(int timeout_ms, std::vector<Channel *> *channels) {
         DEBUG_D("%d events happened", num_events);
 
         for (int i = 0; i < num_events; ++i) {
-            Channel *channel = m_channels.find(m_event_list[i].data.fd)->second;
+            auto it = m_channels.find(m_event_list[i].data.fd);
+            if (it == m_channels.end())
+            {
+                continue;
+            }
+            Channel *channel = it->second;
             channel->set_revents(m_event_list[i].events);
             channels->push_back(channel);
         }
@@ -46,7 +51,7 @@ int64_t EventManager::epoll(int timeout_ms, std::vector<Channel *> *channels) {
                 DEBUG_W("RESIZING m_EVENT LIST from %d to %d", max_events, max_events * 2);
                 m_event_list.resize(max_events * 2);
             } else {
-                DEBUG_F("SKIP RESIZE. CURRENT SIZE %d is gte than %d", max_events, MAX_EVENTS_SIZE);
+                DEBUG_W("SKIP RESIZE. CURRENT SIZE %d is gte than %d", max_events, MAX_EVENTS_SIZE);
             }
         }
     } else if(num_events == -1){
