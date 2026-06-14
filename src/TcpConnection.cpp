@@ -39,11 +39,11 @@ TcpConnection::~TcpConnection() {
         m_outgoing_byte_stream = nullptr;
     }
 
-    DEBUG_D("TcpConnection::dtor[%ld] fd is %d", m_conn_id, m_fd);
+    DEBUG_D("TcpConnection::dtor[%ld] fd is %d ip is %s status is %s", m_conn_id, m_fd, ip_addr().c_str(), state_str().c_str());
 }
 
 void TcpConnection::connection_established() {
-    DEBUG_D("CONN ESTABLISHED");
+    DEBUG_D("CONN ESTABLISHED for %d [%s] state is %s", m_channel->fd(), ip_addr().c_str(), state_str().c_str());
     m_loop->assertInLoopThread();
     assert(m_state == kConnecting);
     m_state = kConnected;
@@ -54,7 +54,7 @@ void TcpConnection::connection_established() {
 }
 
 void TcpConnection::on_periodic_notification(const int64_t now) {
-    DEBUG_D("Periodic event %ld fd is %d", m_conn_id, m_fd);
+    // DEBUG_D("Periodic event %ld fd is %d", m_conn_id, m_fd);
 
     check_timeout(now);
 }
@@ -67,11 +67,7 @@ void TcpConnection::handle_read(const int64_t receiveTime) {
         buffer->rewind();
         const ssize_t readCount = recv(m_channel->fd(), buffer->bytes(), READ_BUFFER_SIZE, MSG_DONTWAIT);
         const int local_errno = errno;
-        int opt_val;
-        if (socklen_t opt_len = sizeof opt_val; ::getsockopt(m_channel->fd(), SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) == 0) {
-            DEBUG_D("ROROR %d %d", opt_val, local_errno);
-        }
-        DEBUG_D("Handle read count %ld", readCount);
+        DEBUG_D("Handle read count %ld info %d", readCount, m_channel->fd());
         if (readCount < 0) {
             if (local_errno == EAGAIN || local_errno == EWOULDBLOCK) {
                 break;
@@ -98,7 +94,7 @@ void TcpConnection::handle_read(const int64_t receiveTime) {
 void TcpConnection::handle_write() {
     m_loop->assertInLoopThread();
 
-    DEBUG_D("Handle write. state is %s", state_str().c_str());
+    DEBUG_D("Handle write. for %d [%s] state is %s", m_channel->fd(), ip_addr().c_str(), state_str().c_str());
 
     if (!m_channel->has_write_op()) {
         DEBUG_W("HANDLE WRITE CALLED... but NOT WRITE OPS. %ld [%s] state is %s", conn_id(), ip_addr().c_str(),state_str().c_str());
@@ -117,10 +113,10 @@ void TcpConnection::handle_write() {
             const int local_errno = errno;
             if (sent_length < 0) {
                 if (local_errno == EWOULDBLOCK || local_errno == EAGAIN) {
-                    DEBUG_W("Got would block on tks send");
+                    DEBUG_W("Got would block on tks send for %d [%s] state is %s", m_channel->fd(), ip_addr().c_str(), state_str().c_str());
                     break;
                 }
-                DEBUG_W("Error when writing on socket %d", local_errno);
+                DEBUG_E("Error when writing on socket errno %d", local_errno);
                 handle_error(local_errno);
                 return;
             }
@@ -164,7 +160,7 @@ void TcpConnection::handle_error(int local_errno) {
 
 void TcpConnection::handle_close(const int reason) {
     m_loop->assertInLoopThread();
-    DEBUG_W("Close called with reason %d. state is %s", reason, state_str().c_str());
+    DEBUG_W("Close called with reason %d. state is %s on fd %d", reason, state_str().c_str(), m_channel->fd());
 
     if (m_state == kDisconnected) return;
     assert(m_state == kConnected || m_state == kDisconnecting);
@@ -246,7 +242,7 @@ void TcpConnection::check_timeout(const uint64_t now) {
     if (m_shutdown_started) {
         if (now - m_shutdown_time > 5'000)
         {
-            DEBUG_E("HAMMER");
+            DEBUG_E("HAMMER for %d [%s] state is %s", m_channel->fd(), ip_addr().c_str(), state_str().c_str());
             handle_close(-1);
         }
     } else {
