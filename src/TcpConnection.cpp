@@ -69,7 +69,7 @@ void TcpConnection::handle_read(const int64_t receiveTime) {
         const int local_errno = errno;
         int opt_val;
         if (socklen_t opt_len = sizeof opt_val; ::getsockopt(m_channel->fd(), SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) == 0) {
-            DEBUG_D("ROROR %d %s", opt_val, local_errno);
+            DEBUG_D("ROROR %d %d", opt_val, local_errno);
         }
         DEBUG_D("Handle read count %ld", readCount);
         if (readCount < 0) {
