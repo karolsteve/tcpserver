@@ -152,7 +152,13 @@ void TcpConnection::handle_error(int local_errno) {
         }
     }
 
-    DEBUG_W("[EventLoop][%s] socket error fd=%d: err=%d desc=%s", ip_addr().c_str(), m_channel->fd(), local_errno, std::strerror(local_errno));
+    // Si l'erreur est "saine", on ne fait rien et on continue
+    if (local_errno == 0 || local_errno == EAGAIN || local_errno == EWOULDBLOCK || local_errno == EINTR) {
+        DEBUG_W("[EventLoop][%s] Socket transient warning fd=%d: err=%d desc=%s. Ignored.",ip_addr().c_str(), m_channel->fd(), local_errno, std::strerror(local_errno));
+        return;
+    }
+
+    DEBUG_E("[EventLoop][%s] CLOSING SOCKET fd=%d: err=%d desc=%s", ip_addr().c_str(), m_channel->fd(), local_errno, std::strerror(local_errno));
     handle_close(1);
 }
 
