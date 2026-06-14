@@ -28,7 +28,7 @@ TcpConnection::TcpConnection(EventLoop *loop, int sock_fd, std::string ip, const
     m_channel->set_read_cb([this](int64_t received_time) { handle_read(received_time); });
     m_channel->set_write_cb([this] { handle_write(); });
     m_channel->set_close_cb([this] { handle_close(0); });
-    m_channel->set_error_cb([this] { handle_error(true); });
+    m_channel->set_error_cb([this] { handle_error(0); });
     m_channel->set_periodic_notification_cb([this](auto now) { on_periodic_notification(now); });
 }
 
@@ -66,14 +66,19 @@ void TcpConnection::handle_read(const int64_t receiveTime) {
     while (true) {
         buffer->rewind();
         const ssize_t readCount = recv(m_channel->fd(), buffer->bytes(), READ_BUFFER_SIZE, MSG_DONTWAIT);
+        const int local_errno = errno;
+        int opt_val;
+        if (socklen_t opt_len = sizeof opt_val; ::getsockopt(m_channel->fd(), SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) == 0) {
+            DEBUG_D("ROROR %d %s", opt_val, local_errno);
+        }
         DEBUG_D("Handle read count %ld", readCount);
         if (readCount < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (local_errno == EAGAIN || local_errno == EWOULDBLOCK) {
                 break;
             }
 
-            DEBUG_F("connection recv failed. errno is %d. client %ld [%s]: %s", errno, m_conn_id, ip_addr().c_str(), strerror(errno));
-            handle_error(false);
+            DEBUG_F("connection recv failed. errno is %d. client %ld [%s]: %s", local_errno, m_conn_id, ip_addr().c_str(), strerror(local_errno));
+            handle_error(local_errno);
             return;
         }
 
@@ -109,13 +114,14 @@ void TcpConnection::handle_write() {
         uint32_t total_sent = 0;
         while (true) {
             ssize_t sent_length = ::send(m_channel->fd(), buffer->bytes() + total_sent, remaining, MSG_NOSIGNAL | MSG_DONTWAIT);
+            const int local_errno = errno;
             if (sent_length < 0) {
-                if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                if (local_errno == EWOULDBLOCK || local_errno == EAGAIN) {
                     DEBUG_W("Got would block on tks send");
                     break;
                 }
-                DEBUG_W("Error when writing on socket %d", errno);
-                handle_error(false);
+                DEBUG_W("Error when writing on socket %d", local_errno);
+                handle_error(local_errno);
                 return;
             }
 
@@ -137,9 +143,8 @@ void TcpConnection::handle_write() {
     }
 }
 
-void TcpConnection::handle_error(bool check_sock_err) {
-    int local_errno = errno;
-    if (check_sock_err || local_errno == 0) {
+void TcpConnection::handle_error(int local_errno) {
+    if (local_errno == 0) {
         int opt_val;
         socklen_t opt_len = sizeof opt_val;
         if (::getsockopt(m_channel->fd(), SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) == 0) {

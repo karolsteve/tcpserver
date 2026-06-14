@@ -55,7 +55,7 @@ private:
 
     void handle_close(int reason);
 
-    void handle_error(bool check_sock_err = true);
+    void handle_error(int local_errno);
 
 
     void graceful_shutdown_internal() const;
