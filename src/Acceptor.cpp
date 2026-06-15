@@ -93,7 +93,12 @@ void Acceptor::listen()
     if (::listen(m_channel->fd(), 65535) != 0)
     {
         const int local_errno = errno;
-        ::close(m_channel->fd());
+        const int fd = m_channel->fd();
+        m_channel->disable_all();
+        m_loop->remove_channel(m_channel.get());
+        m_channel = nullptr; // ~Acceptor ne reclose pas
+        m_listening = false;
+        ::close(fd);
         throw std::system_error(local_errno, std::generic_category(), "listen()");
     }
 }
@@ -159,7 +164,15 @@ Acceptor::~Acceptor()
 {
     if (m_channel != nullptr)
     {
-        ::close(m_channel->fd());
+        const int fd = m_channel->fd();
+        // Retirer le channel d'epoll avant le close pour éviter une entrée epoll fantôme
+        // et un Channel* dangling côté EventManager.
+        if (m_listening)
+        {
+            m_channel->disable_all();
+            m_loop->remove_channel(m_channel.get());
+        }
+        ::close(fd);
         m_channel = nullptr;
     }
 }

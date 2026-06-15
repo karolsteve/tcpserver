@@ -164,19 +164,26 @@ void EventLoop::remove_event(const EventObject *eventObject) {
 }
 
 int EventLoop::call_events(int64_t now) {
-    if (!m_events.empty()) {
-        for (auto iter = m_events.begin(); iter != m_events.end();) {
-            EventObject *eventObject = (*iter);
-            if (eventObject->time() <= now) {
-                iter = m_events.erase(iter);
-                eventObject->on_event();
-            } else {
-                auto diff = (int) (eventObject->time() - now);
-                return diff > 1000 ? 1000 : diff;
-            }
+    std::vector<EventObject *> expired;
+    int next_delay = 1000;
+
+    for (auto iter = m_events.begin(); iter != m_events.end();) {
+        EventObject *eventObject = (*iter);
+        if (eventObject->time() <= now) {
+            expired.push_back(eventObject);
+            iter = m_events.erase(iter);
+        } else {
+            auto diff = (int) (eventObject->time() - now);
+            next_delay = diff > 1000 ? 1000 : diff;
+            break;
         }
     }
-    return 1000;
+
+    for (auto *eventObject : expired) {
+        eventObject->on_event();
+    }
+
+    return next_delay;
 }
 
 EventLoop::~EventLoop() {
